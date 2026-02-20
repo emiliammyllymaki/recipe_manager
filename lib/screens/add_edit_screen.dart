@@ -19,10 +19,21 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _tags = TextEditingController();
   final _notes = TextEditingController();
 
+  // 🔽 Kategoriat
+  final List<String> _categories = [
+    'Suolainen',
+    'Makea',
+    'Välipala',
+    'Juoma',
+  ];
+
+  String? _selectedCategory;
+
   @override
   void initState() {
     super.initState();
     final store = RecipeStore.instance;
+
     if (widget.id != null) {
       final r = store.byId(widget.id!);
       if (r != null) {
@@ -30,6 +41,15 @@ class _AddEditScreenState extends State<AddEditScreen> {
         _prep.text = r.prepMinutes.toString();
         _ingredients.text = r.ingredients.join('\n');
         _tags.text = r.tags.join(',');
+
+        // Jos reseptillä on kategoria tagina, valitaan se dropdowniin
+        for (final c in _categories) {
+          if (r.tags.contains(c)) {
+            _selectedCategory = c;
+            break;
+          }
+        }
+
         _notes.text = r.notes;
       }
     }
@@ -38,6 +58,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.id != null;
+
     return Scaffold(
       appBar: AppBar(title: Text(isEdit ? 'Muokkaa reseptiä' : 'Uusi resepti')),
       body: Form(
@@ -48,11 +69,32 @@ class _AddEditScreenState extends State<AddEditScreen> {
             TextFormField(
               controller: _title,
               decoration: const InputDecoration(labelText: 'Otsikko'),
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'Anna otsikko'
-                  : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Anna otsikko' : null,
             ),
             const SizedBox(height: 12),
+
+            // 🔽 Kategoria dropdown
+            DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              decoration: const InputDecoration(
+                labelText: 'Kategoria',
+                border: OutlineInputBorder(),
+              ),
+              items: _categories
+                  .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(c),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() => _selectedCategory = value);
+              },
+              validator: (v) =>
+                  v == null ? 'Valitse kategoria' : null,
+            ),
+            const SizedBox(height: 12),
+
             TextFormField(
               controller: _prep,
               decoration: const InputDecoration(
@@ -66,6 +108,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
               },
             ),
             const SizedBox(height: 12),
+
             TextFormField(
               controller: _ingredients,
               decoration: const InputDecoration(
@@ -74,40 +117,50 @@ class _AddEditScreenState extends State<AddEditScreen> {
               maxLines: 6,
             ),
             const SizedBox(height: 12),
+
             TextFormField(
               controller: _tags,
-              decoration:
-                  const InputDecoration(labelText: 'Tagit (pilkuin eroteltu)'),
+              decoration: const InputDecoration(
+                labelText: 'Tagit (pilkuin eroteltu)',
+              ),
             ),
             const SizedBox(height: 12),
+
             TextFormField(
               controller: _notes,
-              decoration: const InputDecoration(labelText: 'Ohjeet / muistiinpanot'),
+              decoration:
+                  const InputDecoration(labelText: 'Ohjeet / muistiinpanot'),
               maxLines: 6,
             ),
             const SizedBox(height: 20),
+
             FilledButton.icon(
               onPressed: () async {
                 if (!_formKey.currentState!.validate()) return;
+
                 final store = RecipeStore.instance;
+
                 final recipe = (isEdit
                         ? store.byId(widget.id!) ?? Recipe.newRecipe()
                         : Recipe.newRecipe())
-                    ..title = _title.text.trim()
-                    ..prepMinutes = int.parse(_prep.text)
-                    ..ingredients = _ingredients.text
-                        .split('\n')
-                        .map((e) => e.trim())
-                        .where((e) => e.isNotEmpty)
-                        .toList()
-                    ..tags = _tags.text
+                  ..title = _title.text.trim()
+                  ..prepMinutes = int.parse(_prep.text)
+                  ..ingredients = _ingredients.text
+                      .split('\n')
+                      .map((e) => e.trim())
+                      .where((e) => e.isNotEmpty)
+                      .toList()
+                  ..tags = [
+                    if (_selectedCategory != null) _selectedCategory!,
+                    ..._tags.text
                         .split(',')
                         .map((e) => e.trim())
                         .where((e) => e.isNotEmpty)
-                        .toList()
-                    ..notes = _notes.text.trim();
+                  ]
+                  ..notes = _notes.text.trim();
 
                 await store.addOrUpdate(recipe);
+
                 if (context.mounted) context.go('/recipe/${recipe.id}');
               },
               icon: const Icon(Icons.check),

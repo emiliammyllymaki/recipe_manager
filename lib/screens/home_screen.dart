@@ -12,6 +12,15 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String query = '';
+  String selectedCategory = 'Kaikki';
+
+  final List<String> categories = [
+    'Kaikki',
+    'Suolainen',
+    'Makea',
+    'Välipala',
+    'Juoma',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -26,54 +35,70 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
-          // 🔍 Hakupalkki (Search Bar)
+          // 🔍 Hakupalkki
           Padding(
-  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-  child: Row(
-    children: [
-      // 🔍 Hakukenttä
-      Expanded(
-        child: TextField(
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search),
-            hintText: 'Etsi reseptejä...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'Etsi reseptejä...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  query = value.toLowerCase();
+                });
+              },
             ),
           ),
-          onChanged: (value) {
-            setState(() {
-              query = value.toLowerCase();
-            });
-          },
-        ),
-      ),
 
-      const SizedBox(width: 12),
+          // 🔽 Kategoria-suodatin (FilterChipit)
+          SizedBox(
+            height: 48,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: categories.map((c) {
+                final isSelected = selectedCategory == c;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text(c),
+                    selected: isSelected,
+                    onSelected: (_) {
+                      setState(() => selectedCategory = c);
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
 
-      // ➕ Pyöreä lisäyspainike (FAB small)
-      FloatingActionButton.small(
-        onPressed: () => context.go('/add'),
-        heroTag: 'add_recipe_small',
-        child: const Icon(Icons.add),
-      ),
-    ],
-  ),
-),
-          // 🔽 Reseptilista (suodatettuna)
+          const SizedBox(height: 8),
+
+          // 🔽 Reseptilista (kortit)
           Expanded(
             child: ValueListenableBuilder<List<Recipe>>(
               valueListenable: store.recipes,
               builder: (context, list, _) {
-                // Suodatus logiikka
+                // Suodatus
                 final filtered = list.where((r) {
                   final title = r.title.toLowerCase();
                   final tags = r.tags.join(',').toLowerCase();
-                  final ingredients =
-                      r.ingredients.join(',').toLowerCase();
-                  return title.contains(query) ||
+                  final ingredients = r.ingredients.join(',').toLowerCase();
+
+                  final matchesQuery =
+                      title.contains(query) ||
                       tags.contains(query) ||
                       ingredients.contains(query);
+
+                  final matchesCategory =
+                      selectedCategory == 'Kaikki' ||
+                      r.tags.contains(selectedCategory);
+
+                  return matchesQuery && matchesCategory;
                 }).toList();
 
                 if (filtered.isEmpty) {
@@ -82,19 +107,70 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }
 
-                return ListView.separated(
+                // 📱 Responsiivinen sarakemäärä
+                final width = MediaQuery.of(context).size.width;
+                int columns = 1;
+                if (width > 600) columns = 2;
+                if (width > 900) columns = 3;
+
+                return GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.4,
+                  ),
                   itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, i) {
                     final r = filtered[i];
-                    return ListTile(
-                      title: Text(r.title),
-                      subtitle: Text('${r.prepMinutes} min • ${r.tags.join(', ')}'),
+
+                    return GestureDetector(
                       onTap: () => context.go('/recipe/${r.id}'),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => store.remove(r.id),
-                        tooltip: 'Poista',
+                      child: Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                r.title,
+                                style: Theme.of(context).textTheme.titleMedium,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${r.prepMinutes} min',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                children: r.tags
+                                    .map((t) => Chip(
+                                          label: Text(t),
+                                          visualDensity: VisualDensity.compact,
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ))
+                                    .toList(),
+                              ),
+                              const Spacer(),
+                              Align(
+                                alignment: Alignment.bottomRight,
+                                child: IconButton(
+                                  icon: const Icon(Icons.delete_outline),
+                                  onPressed: () => store.remove(r.id),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   },

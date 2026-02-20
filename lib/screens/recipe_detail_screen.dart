@@ -11,12 +11,14 @@ class RecipeDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = RecipeStore.instance;
     final Recipe? r = store.byId(id);
+
     if (r == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Resepti')),
         body: const Center(child: Text('Reseptiä ei löytynyt')),
       );
     }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(r.title),
@@ -33,17 +35,18 @@ class RecipeDetailScreen extends StatelessWidget {
         children: [
           Wrap(
             spacing: 8,
-            runSpacing: -8,
             children: [
               Chip(label: Text('${r.prepMinutes} min')),
               ...r.tags.map((t) => Chip(label: Text(t))),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
+
           const Text('Ainekset', style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           ...r.ingredients.map((i) => Text('• $i')),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
+
           const Text('Ohjeet', style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           Text(r.notes.isEmpty ? '—' : r.notes),
