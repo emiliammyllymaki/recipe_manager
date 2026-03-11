@@ -134,7 +134,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListTile(
                   leading: Icon(Icons.restaurant_menu),
                   title: Text('Recipe Manager'),
-                  subtitle: Text('Your personal recipe collection'),
                 ),
                 Divider(height: 0),
                 ListTile(
