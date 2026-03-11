@@ -1,0 +1,231 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../data/recipe_store.dart';
+import '../models/recipe.dart';
+
+class AddEditScreen extends StatefulWidget {
+  final String? id;
+  const AddEditScreen({super.key, this.id});
+
+  @override
+  State<AddEditScreen> createState() => _AddEditScreenState();
+}
+
+class _AddEditScreenState extends State<AddEditScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleCtrl = TextEditingController();
+  final _prepCtrl = TextEditingController();
+  final _servingsCtrl = TextEditingController();
+  final _ingredientsCtrl = TextEditingController();
+  final _tagsCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+
+  final List<String> _categories = [
+    'Savoury',
+    'Sweet',
+    'Snack',
+    'Drink',
+  ];
+
+  String? _selectedCategory;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.id != null) {
+      final r = RecipeStore.instance.byId(widget.id!);
+      if (r != null) {
+        _titleCtrl.text = r.title;
+        _prepCtrl.text = r.prepMinutes.toString();
+        _servingsCtrl.text = r.servings.toString();
+        _ingredientsCtrl.text = r.ingredients.join('\n');
+        _tagsCtrl.text = r.tags
+            .where((t) => !_categories.contains(t))
+            .join(',');
+        for (final c in _categories) {
+          if (r.tags.contains(c)) {
+            _selectedCategory = c;
+            break;
+          }
+        }
+        _notesCtrl.text = r.notes;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _prepCtrl.dispose();
+    _servingsCtrl.dispose();
+    _ingredientsCtrl.dispose();
+    _tagsCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEdit = widget.id != null;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEdit ? 'Edit Recipe' : 'New Recipe'),
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Title
+            TextFormField(
+              controller: _titleCtrl,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Title *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.title),
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Please enter a title' : null,
+            ),
+            const SizedBox(height: 16),
+
+            // Category
+            DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              decoration: const InputDecoration(
+                labelText: 'Category *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.category_outlined),
+              ),
+              items: _categories
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedCategory = v),
+              validator: (v) => v == null ? 'Please select a category' : null,
+            ),
+            const SizedBox(height: 16),
+
+            // Prep time + servings side by side
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _prepCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Prep time (min) *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.timer_outlined),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (v) {
+                      final n = int.tryParse(v ?? '');
+                      if (n == null || n < 0) return 'Enter minutes';
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _servingsCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Servings *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.people_outline),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (v) {
+                      final n = int.tryParse(v ?? '');
+                      if (n == null || n < 1) return 'Enter servings';
+                      return null;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Ingredients
+            TextFormField(
+              controller: _ingredientsCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Ingredients (one per line)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.list_alt_outlined),
+                alignLabelWithHint: true,
+              ),
+              maxLines: 6,
+              minLines: 3,
+            ),
+            const SizedBox(height: 16),
+
+            // Extra tags
+            TextFormField(
+              controller: _tagsCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Extra tags (comma separated)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.label_outline),
+                hintText: 'e.g. gluten-free, vegan',
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Instructions
+            TextFormField(
+              controller: _notesCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Instructions / notes',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.notes_outlined),
+                alignLabelWithHint: true,
+              ),
+              maxLines: 8,
+              minLines: 4,
+            ),
+            const SizedBox(height: 24),
+
+            FilledButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.check),
+              label: Text(isEdit ? 'Save changes' : 'Create recipe'),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final store = RecipeStore.instance;
+    final isEdit = widget.id != null;
+
+    final recipe =
+        (isEdit ? store.byId(widget.id!) ?? Recipe.newRecipe() : Recipe.newRecipe())
+          ..title = _titleCtrl.text.trim()
+          ..prepMinutes = int.parse(_prepCtrl.text)
+          ..servings = int.parse(_servingsCtrl.text)
+          ..ingredients = _ingredientsCtrl.text
+              .split('\n')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
+          ..tags = [
+            if (_selectedCategory != null) _selectedCategory!,
+            ..._tagsCtrl.text
+                .split(',')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty),
+          ]
+          ..notes = _notesCtrl.text.trim();
+
+    await store.addOrUpdate(recipe);
+
+    if (mounted) context.go('/recipe/${recipe.id}');
+  }
+}
