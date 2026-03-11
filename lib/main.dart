@@ -4,7 +4,7 @@ import 'data/recipe_store.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await RecipeStore.instance.init(); // Lataa muistista (shared_preferences)
+  await RecipeStore.instance.init();
   runApp(const RecipeApp());
 }
 
@@ -21,22 +21,23 @@ class _RecipeAppState extends State<RecipeApp> {
   @override
   void initState() {
     super.initState();
-    RecipeStore.instance.addListener(_onSettings);
+    RecipeStore.instance.addListener(_onStoreChanged);
   }
 
   @override
   void dispose() {
-    RecipeStore.instance.removeListener(_onSettings);
+    RecipeStore.instance.removeListener(_onStoreChanged);
     super.dispose();
   }
 
-  void _onSettings() => setState(() {});
+  void _onStoreChanged() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
     final store = RecipeStore.instance;
     return MaterialApp.router(
-      title: 'Reseptit',
+      title: 'Recipe Manager',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.teal,

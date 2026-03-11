@@ -15,7 +15,7 @@ Recipe Manager lets you store, browse, and organise all your favourite recipes i
 ### Adding a Recipe
 1. Go to the **Recipes** tab (home screen)
 2. Tap **Add Recipe** in the bottom-right corner
-3. Fill in the title, category, difficulty, prep time, servings, ingredients (one per line), and instructions
+3. Fill in the title, category, difficulty, prep time, servings, ingredients and instructions
 4. Tap **Create Recipe** to save — data is stored automatically
 
 ### Browsing Recipes

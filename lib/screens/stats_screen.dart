@@ -11,8 +11,29 @@ class StatsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Statistics')),
       body: ValueListenableBuilder<List<Recipe>>(
         valueListenable: RecipeStore.instance.recipes,
-        builder: (context, list, _) {
-          return _StatsBody(recipes: list);
+        builder: (context, recipes, _) {
+          if (recipes.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.bar_chart,
+                      size: 72,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.25)),
+                  const SizedBox(height: 16),
+                  Text('No data yet.',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  const Text('Add recipes to see statistics.'),
+                ],
+              ),
+            );
+          }
+
+          return _StatsBody(recipes: recipes);
         },
       ),
     );
@@ -25,33 +46,14 @@ class _StatsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (recipes.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.analytics_outlined,
-                size: 64,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    ..withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
-            const Text('Add recipes to see the statistics'),
-          ],
-        ),
-      );
-    }
-
     final count = recipes.length;
-    final totalTime =
-        recipes.fold(0, (sum, r) => sum + r.prepMinutes);
-    final avgTime = (totalTime / count).round();
-    final maxTime =
-        recipes.map((r) => r.prepMinutes).reduce((a, b) => a > b ? a : b);
+    final favCount = recipes.where((r) => r.isFavorite).length;
+    final avgTime =
+        (recipes.fold(0, (s, r) => s + r.prepMinutes) / count).round();
     final minTime =
         recipes.map((r) => r.prepMinutes).reduce((a, b) => a < b ? a : b);
-    final favCount = recipes.where((r) => r.isFavorite).length;
+    final maxTime =
+        recipes.map((r) => r.prepMinutes).reduce((a, b) => a > b ? a : b);
 
     // Category counts
     final catCounts = <String, int>{};
@@ -63,23 +65,28 @@ class _StatsBody extends StatelessWidget {
     final sortedCats = catCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // Prep-time distribution buckets
-    final buckets = {
-      '≤15 min': 0,
-      '16–30 min': 0,
-      '31–60 min': 0,
-      '>60 min': 0,
+    // Difficulty breakdown
+    final diffCounts = <String, int>{
+      'Easy': 0,
+      'Medium': 0,
+      'Hard': 0,
     };
     for (final r in recipes) {
-      if (r.prepMinutes <= 15) {
-        buckets['≤15 min'] = buckets['≤15 min']! + 1;
-      } else if (r.prepMinutes <= 30) {
-        buckets['16–30 min'] = buckets['16–30 min']! + 1;
-      } else if (r.prepMinutes <= 60) {
-        buckets['31–60 min'] = buckets['31–60 min']! + 1;
-      } else {
-        buckets['>60 min'] = buckets['>60 min']! + 1;
-      }
+      diffCounts[r.difficulty] = (diffCounts[r.difficulty] ?? 0) + 1;
+    }
+
+    // Prep time buckets
+    final timeBuckets = {
+      '≤ 15 min': 0,
+      '16–30 min': 0,
+      '31–60 min': 0,
+      '> 60 min': 0,
+    };
+    for (final r in recipes) {
+      if (r.prepMinutes <= 15) timeBuckets['≤ 15 min'] = timeBuckets['≤ 15 min']! + 1;
+      else if (r.prepMinutes <= 30) timeBuckets['16–30 min'] = timeBuckets['16–30 min']! + 1;
+      else if (r.prepMinutes <= 60) timeBuckets['31–60 min'] = timeBuckets['31–60 min']! + 1;
+      else timeBuckets['> 60 min'] = timeBuckets['> 60 min']! + 1;
     }
 
     return SingleChildScrollView(
@@ -87,163 +94,165 @@ class _StatsBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Summary cards row
+          // Summary cards
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: [
-              _StatCard(
-                  icon: Icons.menu_book,
-                  title: 'Recipes',
-                  value: '$count',
-                  color: Colors.teal),
-              _StatCard(
-                  icon: Icons.timer_outlined,
-                  title: 'Avergae time',
-                  value: '$avgTime min',
-                  color: Colors.blue),
-              _StatCard(
-                  icon: Icons.favorite,
-                  title: 'Favourites',
-                  value: '$favCount',
-                  color: Colors.red),
-              _StatCard(
-                  icon: Icons.flash_on,
-                  title: 'Min time',
-                  value: '$minTime min',
-                  color: Colors.green),
-              _StatCard(
-                  icon: Icons.hourglass_bottom,
-                  title: 'Max time',
-                  value: '$maxTime min',
-                  color: Colors.orange),
+              _StatCard(icon: Icons.menu_book, label: 'Total Recipes', value: '$count', color: Colors.teal),
+              _StatCard(icon: Icons.favorite, label: 'Favourites', value: '$favCount', color: Colors.red),
+              _StatCard(icon: Icons.timer_outlined, label: 'Avg. Prep Time', value: '$avgTime min', color: Colors.blue),
+              _StatCard(icon: Icons.flash_on, label: 'Quickest', value: '$minTime min', color: Colors.green),
+              _StatCard(icon: Icons.hourglass_bottom, label: 'Longest', value: '$maxTime min', color: Colors.orange),
             ],
           ),
 
           const SizedBox(height: 28),
 
-          // Category bar chart
+          // Category breakdown
           if (sortedCats.isNotEmpty) ...[
-            Text('Kategoriat',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
+            _SectionTitle('Recipes by Category'),
+            const SizedBox(height: 10),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  children: sortedCats.take(8).map((entry) {
-                    final pct = entry.value / count;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(entry.key),
-                              Text('${entry.value}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: pct,
-                              minHeight: 10,
-                              backgroundColor: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHighest,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                  children: sortedCats.take(8).map((e) {
+                    return _BarRow(label: e.key, value: e.value, total: count);
                   }).toList(),
                 ),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
           ],
 
-          // Prep-time distribution
-          Text('Preparation time',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
+          // Difficulty breakdown
+          _SectionTitle('Recipes by Difficulty'),
+          const SizedBox(height: 10),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                children: buckets.entries.map((entry) {
-                  final pct = count == 0 ? 0.0 : entry.value / count;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(entry.key),
-                            Text('${entry.value} recipe',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: pct,
-                            minHeight: 10,
-                            backgroundColor: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                children: [
+                  _BarRow(label: 'Easy', value: diffCounts['Easy']!, total: count, color: Colors.green),
+                  _BarRow(label: 'Medium', value: diffCounts['Medium']!, total: count, color: Colors.orange),
+                  _BarRow(label: 'Hard', value: diffCounts['Hard']!, total: count, color: Colors.red),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Prep time distribution
+          _SectionTitle('Preparation Time Distribution'),
+          const SizedBox(height: 10),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: timeBuckets.entries.map((e) {
+                  return _BarRow(label: e.key, value: e.value, total: count,
+                      color: Theme.of(context).colorScheme.secondary);
                 }).toList(),
               ),
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
-          // Top recipes by ingredient count
-          if (recipes.isNotEmpty) ...[
-            Text('Eniten aineksia',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Card(
-              child: Column(
-                children: ([...recipes]
-                      ..sort((a, b) => b.ingredients.length
-                          .compareTo(a.ingredients.length)))
-                    .take(5)
-                    .map((r) => ListTile(
-                          leading: CircleAvatar(
-                              child: Text('${r.ingredients.length}')),
-                          title: Text(r.title),
-                          subtitle: Text('${r.prepMinutes} min'),
-                        ))
-                    .toList(),
-              ),
+          // Top recipes by ingredients
+          _SectionTitle('Most Ingredients'),
+          const SizedBox(height: 10),
+          Card(
+            child: Column(
+              children: ([...recipes]
+                    ..sort((a, b) =>
+                        b.ingredients.length.compareTo(a.ingredients.length)))
+                  .take(5)
+                  .map((r) => ListTile(
+                        leading: CircleAvatar(
+                          child: Text('${r.ingredients.length}',
+                              style: const TextStyle(fontSize: 12)),
+                        ),
+                        title: Text(r.title),
+                        subtitle: Text('${r.prepMinutes} min · ${r.difficulty}'),
+                        trailing: r.isFavorite
+                            ? const Icon(Icons.favorite, color: Colors.red, size: 16)
+                            : null,
+                      ))
+                  .toList(),
             ),
-          ],
+          ),
+
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context)
+          .textTheme
+          .titleMedium
+          ?.copyWith(fontWeight: FontWeight.bold),
+    );
+  }
+}
+
+class _BarRow extends StatelessWidget {
+  final String label;
+  final int value;
+  final int total;
+  final Color? color;
+
+  const _BarRow({
+    required this.label,
+    required this.value,
+    required this.total,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = total == 0 ? 0.0 : value / total;
+    final barColor = color ?? Theme.of(context).colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: Theme.of(context).textTheme.bodyMedium),
+              Text('$value',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 10,
+              color: barColor,
+              backgroundColor:
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
+            ),
+          ),
         ],
       ),
     );
@@ -252,13 +261,13 @@ class _StatsBody extends StatelessWidget {
 
 class _StatCard extends StatelessWidget {
   final IconData icon;
-  final String title;
+  final String label;
   final String value;
   final Color color;
 
   const _StatCard({
     required this.icon,
-    required this.title,
+    required this.label,
     required this.value,
     required this.color,
   });
@@ -266,17 +275,16 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 150,
+      width: 155,
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: color),
+              Icon(icon, color: color, size: 28),
               const SizedBox(height: 8),
-              Text(title,
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(label, style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 4),
               Text(value,
                   style: Theme.of(context)

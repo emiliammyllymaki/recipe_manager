@@ -11,7 +11,8 @@ class RecipeDetailScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete recipe'),
+        icon: const Icon(Icons.delete_outline),
+        title: const Text('Delete Recipe'),
         content: const Text('Are you sure you want to delete this recipe?'),
         actions: [
           TextButton(
@@ -33,6 +34,13 @@ class RecipeDetailScreen extends StatelessWidget {
       context.go('/');
     }
   }
+
+  Color _difficultyColor(String difficulty) => switch (difficulty) {
+        'Easy' => Colors.green,
+        'Medium' => Colors.orange,
+        'Hard' => Colors.red,
+        _ => Colors.grey,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -57,53 +65,58 @@ class RecipeDetailScreen extends StatelessWidget {
               IconButton(
                 icon: Icon(
                   r.isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: r.isFavorite
-                      ? Theme.of(context).colorScheme.error
-                      : null,
+                  color:
+                      r.isFavorite ? Theme.of(context).colorScheme.error : null,
                 ),
-                tooltip: r.isFavorite
-                    ? 'Remove from favourites'
-                    : 'Add to favourites',
+                tooltip:
+                    r.isFavorite ? 'Remove from favourites' : 'Add to favourites',
                 onPressed: () => store.toggleFavorite(id),
               ),
               IconButton(
-                onPressed: () => context.go('/edit/$id'),
                 icon: const Icon(Icons.edit_outlined),
                 tooltip: 'Edit',
+                onPressed: () => context.go('/edit/$id'),
               ),
               IconButton(
-                onPressed: () => _confirmDelete(context),
                 icon: const Icon(Icons.delete_outline),
                 tooltip: 'Delete',
+                onPressed: () => _confirmDelete(context),
               ),
             ],
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Meta chips
+              // Meta info chips
               Wrap(
                 spacing: 8,
-                runSpacing: 4,
+                runSpacing: 6,
                 children: [
-                  _MetaChip(
-                      icon: Icons.timer_outlined,
-                      label: '${r.prepMinutes} min'),
-                  _MetaChip(
-                      icon: Icons.people_outline,
-                      label: '${r.servings} servings'),
+                  Chip(
+                    avatar: const Icon(Icons.timer_outlined, size: 16),
+                    label: Text('${r.prepMinutes} min'),
+                  ),
+                  Chip(
+                    avatar: const Icon(Icons.people_outline, size: 16),
+                    label: Text('${r.servings} servings'),
+                  ),
+                  Chip(
+                    avatar: Icon(Icons.circle,
+                        size: 12, color: _difficultyColor(r.difficulty)),
+                    label: Text(r.difficulty),
+                  ),
                   ...r.tags.map((t) => Chip(label: Text(t))),
                 ],
               ),
 
               const SizedBox(height: 24),
 
-              // Ingredients section
+              // Ingredients
               if (r.ingredients.isNotEmpty) ...[
                 _SectionHeader(
                   icon: Icons.list_alt_outlined,
                   title: 'Ingredients',
-                  subtitle: '${r.ingredients.length} ingredients',
+                  badge: '${r.ingredients.length} items',
                 ),
                 const SizedBox(height: 8),
                 Card(
@@ -111,30 +124,32 @@ class RecipeDetailScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 8),
                     child: Column(
-                      children: r.ingredients
-                          .map((ing) => Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 6),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.circle,
-                                        size: 8,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: Text(ing)),
-                                  ],
-                                ),
-                              ))
-                          .toList(),
+                      children: r.ingredients.map((ing) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            children: [
+                              Icon(Icons.fiber_manual_record,
+                                  size: 8,
+                                  color:
+                                      Theme.of(context).colorScheme.primary),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                  child: Text(ing,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium)),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
               ],
 
-              // Instructions section
+              // Instructions
               _SectionHeader(
                 icon: Icons.notes_outlined,
                 title: 'Instructions',
@@ -145,11 +160,13 @@ class RecipeDetailScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     r.notes.isEmpty ? 'No instructions added.' : r.notes,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          height: 1.6,
+                        ),
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
             ],
           ),
         );
@@ -158,42 +175,32 @@ class RecipeDetailScreen extends StatelessWidget {
   }
 }
 
-class _MetaChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _MetaChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 16),
-      label: Text(label),
-    );
-  }
-}
-
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String? subtitle;
-  const _SectionHeader(
-      {required this.icon, required this.title, this.subtitle});
+  final String? badge;
+
+  const _SectionHeader({required this.icon, required this.title, this.badge});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: Theme.of(context).colorScheme.primary),
+        Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
         const SizedBox(width: 8),
         Text(title,
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
                 ?.copyWith(fontWeight: FontWeight.bold)),
-        if (subtitle != null) ...[
+        if (badge != null) ...[
           const SizedBox(width: 8),
-          Text(subtitle!,
-              style: Theme.of(context).textTheme.bodySmall),
+          Chip(
+            label: Text(badge!, style: const TextStyle(fontSize: 11)),
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
         ],
       ],
     );

@@ -20,14 +20,11 @@ class _AddEditScreenState extends State<AddEditScreen> {
   final _tagsCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
 
-  final List<String> _categories = [
-    'Savoury',
-    'Sweet',
-    'Snack',
-    'Drink',
-  ];
+  static const _categories = ['Savoury', 'Sweet', 'Snack', 'Drink'];
+  static const _difficulties = ['Easy', 'Medium', 'Hard'];
 
   String? _selectedCategory;
+  String _selectedDifficulty = 'Easy';
 
   @override
   void initState() {
@@ -39,16 +36,16 @@ class _AddEditScreenState extends State<AddEditScreen> {
         _prepCtrl.text = r.prepMinutes.toString();
         _servingsCtrl.text = r.servings.toString();
         _ingredientsCtrl.text = r.ingredients.join('\n');
-        _tagsCtrl.text = r.tags
-            .where((t) => !_categories.contains(t))
-            .join(',');
+        _tagsCtrl.text =
+            r.tags.where((t) => !_categories.contains(t)).join(', ');
+        _notesCtrl.text = r.notes;
+        _selectedDifficulty = r.difficulty;
         for (final c in _categories) {
           if (r.tags.contains(c)) {
             _selectedCategory = c;
             break;
           }
         }
-        _notesCtrl.text = r.notes;
       }
     }
   }
@@ -82,7 +79,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
               controller: _titleCtrl,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
-                labelText: 'Title *',
+                labelText: 'Recipe Title *',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.title),
               ),
@@ -91,7 +88,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Category
+            // Category dropdown
             DropdownButtonFormField<String>(
               value: _selectedCategory,
               decoration: const InputDecoration(
@@ -107,7 +104,22 @@ class _AddEditScreenState extends State<AddEditScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Prep time + servings side by side
+            // Difficulty
+            DropdownButtonFormField<String>(
+              value: _selectedDifficulty,
+              decoration: const InputDecoration(
+                labelText: 'Difficulty *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.signal_cellular_alt_outlined),
+              ),
+              items: _difficulties
+                  .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedDifficulty = v!),
+            ),
+            const SizedBox(height: 16),
+
+            // Prep time + servings
             Row(
               children: [
                 Expanded(
@@ -155,9 +167,10 @@ class _AddEditScreenState extends State<AddEditScreen> {
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.list_alt_outlined),
                 alignLabelWithHint: true,
+                hintText: '2 cups flour\n1 tsp salt\n...',
               ),
-              maxLines: 6,
-              minLines: 3,
+              maxLines: 7,
+              minLines: 4,
             ),
             const SizedBox(height: 16),
 
@@ -168,7 +181,7 @@ class _AddEditScreenState extends State<AddEditScreen> {
                 labelText: 'Extra tags (comma separated)',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.label_outline),
-                hintText: 'e.g. gluten-free, vegan',
+                hintText: 'e.g. gluten-free, vegan, quick',
               ),
             ),
             const SizedBox(height: 16),
@@ -177,22 +190,23 @@ class _AddEditScreenState extends State<AddEditScreen> {
             TextFormField(
               controller: _notesCtrl,
               decoration: const InputDecoration(
-                labelText: 'Instructions / notes',
+                labelText: 'Instructions',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.notes_outlined),
                 alignLabelWithHint: true,
+                hintText: 'Step 1: ...\nStep 2: ...',
               ),
-              maxLines: 8,
-              minLines: 4,
+              maxLines: 10,
+              minLines: 5,
             ),
             const SizedBox(height: 24),
 
             FilledButton.icon(
               onPressed: _save,
               icon: const Icon(Icons.check),
-              label: Text(isEdit ? 'Save changes' : 'Create recipe'),
+              label: Text(isEdit ? 'Save Changes' : 'Create Recipe'),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 48),
           ],
         ),
       ),
@@ -205,27 +219,29 @@ class _AddEditScreenState extends State<AddEditScreen> {
     final store = RecipeStore.instance;
     final isEdit = widget.id != null;
 
-    final recipe =
-        (isEdit ? store.byId(widget.id!) ?? Recipe.newRecipe() : Recipe.newRecipe())
-          ..title = _titleCtrl.text.trim()
-          ..prepMinutes = int.parse(_prepCtrl.text)
-          ..servings = int.parse(_servingsCtrl.text)
-          ..ingredients = _ingredientsCtrl.text
-              .split('\n')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList()
-          ..tags = [
-            if (_selectedCategory != null) _selectedCategory!,
-            ..._tagsCtrl.text
-                .split(',')
-                .map((e) => e.trim())
-                .where((e) => e.isNotEmpty),
-          ]
-          ..notes = _notesCtrl.text.trim();
+    final base =
+        isEdit ? (store.byId(widget.id!) ?? Recipe.newRecipe()) : Recipe.newRecipe();
 
-    await store.addOrUpdate(recipe);
+    base
+      ..title = _titleCtrl.text.trim()
+      ..prepMinutes = int.parse(_prepCtrl.text)
+      ..servings = int.parse(_servingsCtrl.text)
+      ..difficulty = _selectedDifficulty
+      ..ingredients = _ingredientsCtrl.text
+          .split('\n')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList()
+      ..tags = [
+        if (_selectedCategory != null) _selectedCategory!,
+        ..._tagsCtrl.text
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty),
+      ]
+      ..notes = _notesCtrl.text.trim();
 
-    if (mounted) context.go('/recipe/${recipe.id}');
+    await store.addOrUpdate(base);
+    if (mounted) context.go('/recipe/${base.id}');
   }
 }

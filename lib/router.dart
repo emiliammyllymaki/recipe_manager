@@ -7,7 +7,6 @@ import 'screens/settings_screen.dart';
 import 'screens/add_edit_screen.dart';
 import 'screens/recipe_detail_screen.dart';
 
-// go_router tukee shell-routeja ja polkuparametreja (esim. :id). [6](https://pub.dev/packages/go_router)
 class AppRouter {
   static final _rootKey = GlobalKey<NavigatorState>();
   static final _shellKey = GlobalKey<NavigatorState>();
@@ -59,8 +58,9 @@ class AppRouter {
               builder: (context, state) =>
                   AddEditScreen(id: state.pathParameters['id']),
             ),
+            // Path variable :id - required by project spec
             GoRoute(
-              path: '/recipe/:id', // <-- path variable -vaatimus täyttyy
+              path: '/recipe/:id',
               builder: (context, state) =>
                   RecipeDetailScreen(id: state.pathParameters['id']!),
             ),

@@ -4,14 +4,12 @@ import '../models/recipe.dart';
 
 class RecipeStore extends ChangeNotifier {
   static const _recipesKey = 'recipes_v1';
-  static const _maxWidthKey = 'max_width_v1';
   static const _themeDarkKey = 'theme_dark_v1';
 
   static final RecipeStore instance = RecipeStore._();
   RecipeStore._();
 
   final ValueNotifier<List<Recipe>> recipes = ValueNotifier<List<Recipe>>([]);
-  double maxContentWidth = 1000;
   bool darkMode = false;
 
   Future<void> init() async {
@@ -20,7 +18,6 @@ class RecipeStore extends ChangeNotifier {
     if (raw != null && raw.isNotEmpty) {
       recipes.value = Recipe.decodeList(raw);
     }
-    maxContentWidth = prefs.getDouble(_maxWidthKey) ?? 1000;
     darkMode = prefs.getBool(_themeDarkKey) ?? false;
   }
 
@@ -45,28 +42,18 @@ class RecipeStore extends ChangeNotifier {
     final list = [...recipes.value];
     final idx = list.indexWhere((r) => r.id == id);
     if (idx >= 0) {
-      final r = list[idx];
-      r.isFavorite = !r.isFavorite;
-      list[idx] = r;
-      recipes.value = list;
+      list[idx].isFavorite = !list[idx].isFavorite;
+      recipes.value = [...list];
       await _persist();
     }
   }
 
-  // Safe null-returning lookup — no more "null as Recipe" crash
   Recipe? byId(String id) {
     try {
       return recipes.value.firstWhere((r) => r.id == id);
     } catch (_) {
       return null;
     }
-  }
-
-  Future<void> setMaxWidth(double value) async {
-    maxContentWidth = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_maxWidthKey, value);
-    notifyListeners();
   }
 
   Future<void> setDarkMode(bool value) async {
