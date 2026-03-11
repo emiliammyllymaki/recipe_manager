@@ -4,7 +4,7 @@ import '../data/recipe_store.dart';
 import '../models/recipe.dart';
 
 class AddEditScreen extends StatefulWidget {
-  final String? id; // null -> uusi
+  final String? id;
   const AddEditScreen({super.key, this.id});
 
   @override
@@ -13,18 +13,18 @@ class AddEditScreen extends StatefulWidget {
 
 class _AddEditScreenState extends State<AddEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _title = TextEditingController();
-  final _prep = TextEditingController();
-  final _ingredients = TextEditingController();
-  final _tags = TextEditingController();
-  final _notes = TextEditingController();
+  final _titleCtrl = TextEditingController();
+  final _prepCtrl = TextEditingController();
+  final _servingsCtrl = TextEditingController();
+  final _ingredientsCtrl = TextEditingController();
+  final _tagsCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
 
-  // 🔽 Kategoriat
   final List<String> _categories = [
-    'Suolainen',
-    'Makea',
-    'Välipala',
-    'Juoma',
+    'Savoury',
+    'Sweet',
+    'Snack',
+    'Drink',
   ];
 
   String? _selectedCategory;
@@ -32,27 +32,36 @@ class _AddEditScreenState extends State<AddEditScreen> {
   @override
   void initState() {
     super.initState();
-    final store = RecipeStore.instance;
-
     if (widget.id != null) {
-      final r = store.byId(widget.id!);
+      final r = RecipeStore.instance.byId(widget.id!);
       if (r != null) {
-        _title.text = r.title;
-        _prep.text = r.prepMinutes.toString();
-        _ingredients.text = r.ingredients.join('\n');
-        _tags.text = r.tags.join(',');
-
-        // Jos reseptillä on kategoria tagina, valitaan se dropdowniin
+        _titleCtrl.text = r.title;
+        _prepCtrl.text = r.prepMinutes.toString();
+        _servingsCtrl.text = r.servings.toString();
+        _ingredientsCtrl.text = r.ingredients.join('\n');
+        _tagsCtrl.text = r.tags
+            .where((t) => !_categories.contains(t))
+            .join(',');
         for (final c in _categories) {
           if (r.tags.contains(c)) {
             _selectedCategory = c;
             break;
           }
         }
-
-        _notes.text = r.notes;
+        _notesCtrl.text = r.notes;
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _prepCtrl.dispose();
+    _servingsCtrl.dispose();
+    _ingredientsCtrl.dispose();
+    _tagsCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -60,115 +69,163 @@ class _AddEditScreenState extends State<AddEditScreen> {
     final isEdit = widget.id != null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(isEdit ? 'Muokkaa reseptiä' : 'Uusi resepti')),
+      appBar: AppBar(
+        title: Text(isEdit ? 'Edit Recipe' : 'New Recipe'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // Title
             TextFormField(
-              controller: _title,
-              decoration: const InputDecoration(labelText: 'Otsikko'),
+              controller: _titleCtrl,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Title *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.title),
+              ),
               validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Anna otsikko' : null,
+                  (v == null || v.trim().isEmpty) ? 'Please enter a title' : null,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // 🔽 Kategoria dropdown
+            // Category
             DropdownButtonFormField<String>(
               value: _selectedCategory,
               decoration: const InputDecoration(
-                labelText: 'Kategoria',
+                labelText: 'Category *',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.category_outlined),
               ),
               items: _categories
-                  .map((c) => DropdownMenuItem(
-                        value: c,
-                        child: Text(c),
-                      ))
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                   .toList(),
-              onChanged: (value) {
-                setState(() => _selectedCategory = value);
-              },
-              validator: (v) =>
-                  v == null ? 'Valitse kategoria' : null,
+              onChanged: (v) => setState(() => _selectedCategory = v),
+              validator: (v) => v == null ? 'Please select a category' : null,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            TextFormField(
-              controller: _prep,
-              decoration: const InputDecoration(
-                labelText: 'Valmistusaika (min)',
-              ),
-              keyboardType: TextInputType.number,
-              validator: (v) {
-                final n = int.tryParse(v ?? '');
-                if (n == null || n < 0) return 'Anna minuutit numerona';
-                return null;
-              },
+            // Prep time + servings side by side
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _prepCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Prep time (min) *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.timer_outlined),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (v) {
+                      final n = int.tryParse(v ?? '');
+                      if (n == null || n < 0) return 'Enter minutes';
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _servingsCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Servings *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.people_outline),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (v) {
+                      final n = int.tryParse(v ?? '');
+                      if (n == null || n < 1) return 'Enter servings';
+                      return null;
+                    },
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
+            // Ingredients
             TextFormField(
-              controller: _ingredients,
+              controller: _ingredientsCtrl,
               decoration: const InputDecoration(
-                labelText: 'Ainekset (yksi per rivi)',
+                labelText: 'Ingredients (one per line)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.list_alt_outlined),
+                alignLabelWithHint: true,
               ),
               maxLines: 6,
+              minLines: 3,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
+            // Extra tags
             TextFormField(
-              controller: _tags,
+              controller: _tagsCtrl,
               decoration: const InputDecoration(
-                labelText: 'Tagit (pilkuin eroteltu)',
+                labelText: 'Extra tags (comma separated)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.label_outline),
+                hintText: 'e.g. gluten-free, vegan',
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
+            // Instructions
             TextFormField(
-              controller: _notes,
-              decoration:
-                  const InputDecoration(labelText: 'Ohjeet / muistiinpanot'),
-              maxLines: 6,
+              controller: _notesCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Instructions / notes',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.notes_outlined),
+                alignLabelWithHint: true,
+              ),
+              maxLines: 8,
+              minLines: 4,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             FilledButton.icon(
-              onPressed: () async {
-                if (!_formKey.currentState!.validate()) return;
-
-                final store = RecipeStore.instance;
-
-                final recipe = (isEdit
-                        ? store.byId(widget.id!) ?? Recipe.newRecipe()
-                        : Recipe.newRecipe())
-                  ..title = _title.text.trim()
-                  ..prepMinutes = int.parse(_prep.text)
-                  ..ingredients = _ingredients.text
-                      .split('\n')
-                      .map((e) => e.trim())
-                      .where((e) => e.isNotEmpty)
-                      .toList()
-                  ..tags = [
-                    if (_selectedCategory != null) _selectedCategory!,
-                    ..._tags.text
-                        .split(',')
-                        .map((e) => e.trim())
-                        .where((e) => e.isNotEmpty)
-                  ]
-                  ..notes = _notes.text.trim();
-
-                await store.addOrUpdate(recipe);
-
-                if (context.mounted) context.go('/recipe/${recipe.id}');
-              },
+              onPressed: _save,
               icon: const Icon(Icons.check),
-              label: Text(isEdit ? 'Tallenna' : 'Luo resepti'),
+              label: Text(isEdit ? 'Save changes' : 'Create recipe'),
             ),
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final store = RecipeStore.instance;
+    final isEdit = widget.id != null;
+
+    final recipe =
+        (isEdit ? store.byId(widget.id!) ?? Recipe.newRecipe() : Recipe.newRecipe())
+          ..title = _titleCtrl.text.trim()
+          ..prepMinutes = int.parse(_prepCtrl.text)
+          ..servings = int.parse(_servingsCtrl.text)
+          ..ingredients = _ingredientsCtrl.text
+              .split('\n')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
+          ..tags = [
+            if (_selectedCategory != null) _selectedCategory!,
+            ..._tagsCtrl.text
+                .split(',')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty),
+          ]
+          ..notes = _notesCtrl.text.trim();
+
+    await store.addOrUpdate(recipe);
+
+    if (mounted) context.go('/recipe/${recipe.id}');
   }
 }

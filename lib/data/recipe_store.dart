@@ -16,12 +16,10 @@ class RecipeStore extends ChangeNotifier {
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    // Lataa reseptit
     final raw = prefs.getString(_recipesKey);
     if (raw != null && raw.isNotEmpty) {
       recipes.value = Recipe.decodeList(raw);
     }
-    // Asetukset
     maxContentWidth = prefs.getDouble(_maxWidthKey) ?? 1000;
     darkMode = prefs.getBool(_themeDarkKey) ?? false;
   }
@@ -43,8 +41,26 @@ class RecipeStore extends ChangeNotifier {
     await _persist();
   }
 
-  Recipe? byId(String id) =>
-      recipes.value.firstWhere((r) => r.id == id, orElse: () => null as Recipe);
+  Future<void> toggleFavorite(String id) async {
+    final list = [...recipes.value];
+    final idx = list.indexWhere((r) => r.id == id);
+    if (idx >= 0) {
+      final r = list[idx];
+      r.isFavorite = !r.isFavorite;
+      list[idx] = r;
+      recipes.value = list;
+      await _persist();
+    }
+  }
+
+  // Safe null-returning lookup — no more "null as Recipe" crash
+  Recipe? byId(String id) {
+    try {
+      return recipes.value.firstWhere((r) => r.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> setMaxWidth(double value) async {
     maxContentWidth = value;
@@ -62,7 +78,7 @@ class RecipeStore extends ChangeNotifier {
 
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString( _recipesKey, Recipe.encodeList(recipes.value));
+    await prefs.setString(_recipesKey, Recipe.encodeList(recipes.value));
     notifyListeners();
   }
 }
